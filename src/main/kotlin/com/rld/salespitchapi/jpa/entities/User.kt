@@ -7,7 +7,7 @@ import jakarta.persistence.*
 @Table(name="Users")
 open class User {
     @Expose @Id open var email: String = ""
-    @Expose open var password: String? = null
+    open var password: String? = null
     @Expose open var firstname: String? = null
     @Expose open var lastname: String? = null
     @Expose open var phoneNumber: String? = null

@@ -1,7 +1,9 @@
 package com.rld.salespitchapi.rest
 
 import com.google.gson.GsonBuilder
+import com.rld.salespitchapi.SalespitchapiApplication.Companion.logger
 import com.rld.salespitchapi.jpa.entities.Match
+import com.rld.salespitchapi.jpa.entities.MatchGson
 import com.rld.salespitchapi.jpa.entities.MatchGsonWrapper
 import com.rld.salespitchapi.jpa.entities.User
 import com.rld.salespitchapi.jpa.repositories.MatchRepository
@@ -118,11 +120,18 @@ class UserController {
     @PostMapping("/matches")
     fun getMatches(@RequestParam user: String): String {
         val acceptedMatches = matches.getSuccessfulMatchesByUser(user)
-        val jsonObj = if(acceptedMatches != null) MatchGsonWrapper(acceptedMatches) else MatchGsonWrapper(listOf())
-        return GsonBuilder()
+        val jsonObj = if(acceptedMatches != null)
+            MatchGsonWrapper(acceptedMatches.map {
+                MatchGson(users.getUserByEmail(it.user1?.email!!), users.getUserByEmail(it.user2?.email!!))
+            })
+        else
+            MatchGsonWrapper(listOf())
+        val json = GsonBuilder()
             .excludeFieldsWithoutExposeAnnotation()
             .create()
             .toJson(jsonObj, MatchGsonWrapper::class.java)
+        println("Created json $json")
+        return json
     }
 
     @PostMapping("/password/send")

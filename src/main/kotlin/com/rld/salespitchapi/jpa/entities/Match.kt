@@ -20,4 +20,12 @@ open class Match {
     open var accepted: Boolean = false
 }
 
-data class MatchGsonWrapper(@Expose val matches: List<Match>)
+data class MatchGson(
+    @Expose val user1: User?,
+    @Expose val user2: User?
+)
+
+
+data class MatchGsonWrapper(
+    @Expose val matches: List<MatchGson>
+)
