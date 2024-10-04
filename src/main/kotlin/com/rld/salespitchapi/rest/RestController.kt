@@ -1,13 +1,13 @@
 package com.rld.salespitchapi.rest
 
 import com.google.gson.GsonBuilder
-import com.rld.salespitchapi.SalespitchapiApplication.Companion.logger
 import com.rld.salespitchapi.jpa.entities.Match
 import com.rld.salespitchapi.jpa.entities.MatchGson
 import com.rld.salespitchapi.jpa.entities.MatchGsonWrapper
 import com.rld.salespitchapi.jpa.entities.User
 import com.rld.salespitchapi.jpa.repositories.MatchRepository
 import com.rld.salespitchapi.jpa.repositories.UserRepository
+import org.apache.commons.lang3.SystemUtils
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.io.InputStreamResource
 import org.springframework.http.HttpEntity
@@ -24,7 +24,12 @@ import java.util.*
 @RestController
 @RequestMapping("/app/api")
 class UserController {
-    val pfpPath = "${System.getProperty("user.home")}\\Desktop\\salespitchdata"
+    val dataPath = when {
+        SystemUtils.IS_OS_WINDOWS -> "${System.getProperty("user.home").replace('\\', '/')}/Desktop/salespitchdata"
+        SystemUtils.IS_OS_LINUX -> "${System.getProperty("user.home")}/salespitchdata"
+        SystemUtils.IS_OS_MAC -> "${System.getProperty("user.home")}/salespitchdata"
+        else -> throw ExceptionInInitializerError("OS ${SystemUtils.OS_NAME} is unsupported.")
+    }
 
     @Autowired lateinit var users: UserRepository
     @Autowired lateinit var matches: MatchRepository
@@ -64,14 +69,21 @@ class UserController {
         @RequestParam password: String,
         @RequestParam email: String,
         @RequestParam phone: String,
-        @RequestPart profilePicture: MultipartFile
+        @RequestPart profilePicture: MultipartFile,
+        @RequestPart videoFile: MultipartFile
     ) {
         val checkUser = users.getUserByEmail(email)
         require(checkUser == null)
-        with(File("$pfpPath\\$email\\profilepicture")) {
+        with(File("$dataPath/$email/profilepicture")) { //check directory
             if(!exists()) mkdirs()
-            with(File("$pfpPath\\$email\\profilepicture\\picture.jpg")) {
+            with(File("$dataPath/$email/profilepicture/picture.jpg")) {
                 writeBytes(profilePicture.bytes)
+            }
+        }
+        with(File("$dataPath/$email/video")) { //check directory
+            if(!exists()) mkdirs()
+            with(File("$dataPath/$email/video/video.mp4")) {
+                writeBytes(videoFile.bytes)
             }
         }
         val user = User().apply {
@@ -80,7 +92,8 @@ class UserController {
             this.password = hasher.encode(password)
             this.email = email
             this.phoneNumber = phone
-            this.profilePicturePath = "$pfpPath/$email/profilepicture/picture.jpg"
+            this.profilePicturePath = "$dataPath/$email/profilepicture/picture.jpg"
+            this.videoUri = "$dataPath/$email/video/video.mp4"
         }
         users.save(user)
     }
@@ -162,6 +175,21 @@ class UserController {
         users.save(user)
     }
 
+    @GetMapping("/{user}/videotest")
+    @ResponseBody
+    fun serveVideo(@PathVariable user: String): ResponseEntity<ByteArray> {
+        val path = users.getUserByEmail(user)
+        require(path != null) { "User $user does not exist" }
+        val videoBytes = with(File(path.videoUri!!)) {
+            require(exists())
+            readBytes() 
+        }
+        return ResponseEntity.ok()
+            .header("Content-Type", "video/mp4")
+            .header("Content-Length", videoBytes.size.toString())
+            .body(videoBytes)
+    }
+
     private fun isValid(code: String): Boolean = TODO("Implement password reset system")
 
     fun packUser(user: User?): ResponseEntity<LinkedMultiValueMap<String, Any>> {
@@ -170,7 +198,7 @@ class UserController {
         val gson = GsonBuilder()
             .excludeFieldsWithoutExposeAnnotation()
             .create()
-        val pictureBytes = with(File("$pfpPath/${user.email}/profilepicture/picture.jpg")) {
+        val pictureBytes = with(File("$dataPath/${user.email}/profilepicture/picture.jpg")) {
             require(exists()) { "Profile picture cannot be accessed." }
             readBytes()
         }

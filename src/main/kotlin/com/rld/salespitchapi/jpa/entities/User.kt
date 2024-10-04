@@ -12,6 +12,7 @@ open class User {
     @Expose open var lastname: String? = null
     @Expose open var phoneNumber: String? = null
     open var profilePicturePath: String? = null
+    open var videoUri: String? = null
     @OneToMany(cascade = [CascadeType.ALL])
     open var matches: MutableList<Match> = mutableListOf()
 }
