@@ -4,7 +4,7 @@ import com.google.gson.annotations.Expose
 import jakarta.persistence.*
 
 @Entity
-@Table(name="Users")
+@Table(name="users")
 open class User {
     @Expose @Id open var email: String = ""
     open var password: String? = null

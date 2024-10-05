@@ -1,12 +1,11 @@
 package com.rld.salespitchapi.rest
 
 import com.google.gson.GsonBuilder
-import com.rld.salespitchapi.jpa.entities.Match
-import com.rld.salespitchapi.jpa.entities.MatchGson
-import com.rld.salespitchapi.jpa.entities.MatchGsonWrapper
-import com.rld.salespitchapi.jpa.entities.User
+import com.rld.salespitchapi.jpa.entities.*
 import com.rld.salespitchapi.jpa.repositories.MatchRepository
+import com.rld.salespitchapi.jpa.repositories.ResetRepository
 import com.rld.salespitchapi.jpa.repositories.UserRepository
+import com.rld.salespitchapi.mail.MailService
 import org.apache.commons.lang3.SystemUtils
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.io.InputStreamResource
@@ -19,6 +18,9 @@ import org.springframework.util.LinkedMultiValueMap
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
 import java.io.File
+import java.text.SimpleDateFormat
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.*
 
 @RestController
@@ -33,6 +35,9 @@ class UserController {
 
     @Autowired lateinit var users: UserRepository
     @Autowired lateinit var matches: MatchRepository
+    @Autowired lateinit var resetRequests: ResetRepository
+
+    @Autowired lateinit var mailService: MailService
 
     private val hasher = Argon2PasswordEncoder.defaultsForSpringSecurity_v5_8()
 
@@ -147,20 +152,35 @@ class UserController {
         return json
     }
 
-    @PostMapping("/password/send")
-    fun setPasswordReset(
-        @RequestParam email: String
-    ): ResponseEntity<Any> {
-        return if(users.getUserByEmail(email) == null)
-            ResponseEntity.internalServerError().build()
-        else ResponseEntity.ok().build()
+    @GetMapping("/{user}/videotest")
+    @ResponseBody
+    fun serveVideo(@PathVariable user: String): ResponseEntity<ByteArray> {
+        val path = users.getUserByEmail(user)
+        require(path != null) { "User $user does not exist" }
+        val videoBytes = with(File(path.videoUri!!)) {
+            require(exists())
+            readBytes()
+        }
+        return ResponseEntity.ok()
+            .header("Content-Type", "video/mp4")
+            .header("Content-Length", videoBytes.size.toString())
+            .body(videoBytes)
     }
 
-    @PostMapping("/password/verify")
-    fun verifyResetCode(
-        @RequestParam code: String
+    @PostMapping("/password/send")
+    fun sendPasswordReset(
+        @RequestParam email: String
     ) {
-        TODO("Implement password reset system")
+        val user = users.getUserByEmail(email)
+        require(user != null)
+        val code = genCode(6)
+        val request = resetRequests.save(ResetRequest().apply {
+            this.user = user
+            this.grantedPeriod = 20
+            this.initTimestamp = getTS()
+            this.assocCode = code
+        })
+        mailService.sendResetMail(request)
     }
 
     @PostMapping("/password/reset")
@@ -170,27 +190,31 @@ class UserController {
         @RequestParam password: String
     ) {
         val user = users.getUserByEmail(email)
-        require(isValid(code) && user != null)
-        user.password = hasher.encode(password)
+        require(user != null)
+        val resetRequest = resetRequests.getResetRequestsByUser(user)
+        require(
+            resetRequest != null && //request exists
+            resetRequest.size == 1 && //there is only one request
+            code == resetRequest[0].assocCode && //the code is valid
+            LocalDateTime //is within valid period
+                .from(
+                    DateTimeFormatter
+                        .RFC_1123_DATE_TIME
+                        .parse(resetRequest[0].initTimestamp!!)
+                )
+                .plusMinutes(resetRequest[0].grantedPeriod.toLong())
+                .isAfter(LocalDateTime.now())
+        )
+        resetRequests.delete(resetRequest[0])
+        user.password = password
         users.save(user)
+
     }
 
-    @GetMapping("/{user}/videotest")
-    @ResponseBody
-    fun serveVideo(@PathVariable user: String): ResponseEntity<ByteArray> {
-        val path = users.getUserByEmail(user)
-        require(path != null) { "User $user does not exist" }
-        val videoBytes = with(File(path.videoUri!!)) {
-            require(exists())
-            readBytes() 
-        }
-        return ResponseEntity.ok()
-            .header("Content-Type", "video/mp4")
-            .header("Content-Length", videoBytes.size.toString())
-            .body(videoBytes)
+    @GetMapping("/mailtest")
+    fun mailTest() {
+        mailService.sendMail("porubangs24@gcc.edu", "Hello World!")
     }
-
-    private fun isValid(code: String): Boolean = TODO("Implement password reset system")
 
     fun packUser(user: User?): ResponseEntity<LinkedMultiValueMap<String, Any>> {
         if(user == null)
@@ -210,4 +234,11 @@ class UserController {
                 add("picture", HttpEntity(InputStreamResource(pictureBytes.inputStream()), HttpHeaders()))
             })
     }
+
+    private fun genCode(len: Int): String {
+        val chars = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+        return buildString { for(i in 0..< len) append(chars.random()) }
+    }
+
+    private fun getTS(): String = LocalDateTime.now().format(DateTimeFormatter.RFC_1123_DATE_TIME)
 }

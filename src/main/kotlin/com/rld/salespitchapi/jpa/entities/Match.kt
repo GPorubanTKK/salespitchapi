@@ -4,7 +4,7 @@ import com.google.gson.annotations.Expose
 import jakarta.persistence.*
 
 @Entity
-@Table(name="Matches")
+@Table(name="matches")
 open class Match {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
