@@ -1,10 +1,6 @@
 package com.rld.salespitchapi.jpa.entities
 
-import jakarta.persistence.Entity
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.Id
-import jakarta.persistence.OneToOne
-import jakarta.persistence.Table
+import jakarta.persistence.*
 
 @Entity
 @Table(name = "password_resets")
@@ -14,4 +10,12 @@ open class ResetRequest {
     open var initTimestamp: String? = null
     open var grantedPeriod: Int = 0
     open var assocCode: String? = null
+    companion object {
+        fun of(user: User, timeStamp: String, period: Int, resetCode: String) = ResetRequest().apply {
+            this.user = user
+            this.initTimestamp = timeStamp
+            this.grantedPeriod = period
+            this.assocCode = resetCode
+        }
+    }
 }

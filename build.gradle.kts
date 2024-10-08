@@ -28,6 +28,7 @@ repositories {
 }
 
 dependencies {
+	implementation("software.amazon.awssdk:ses:2.28.16")
 	implementation("org.apache.commons:commons-lang3:3.17.0")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-web")

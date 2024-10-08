@@ -2,44 +2,24 @@ package com.rld.salespitchapi.rest
 
 import com.google.gson.GsonBuilder
 import com.rld.salespitchapi.jpa.entities.*
-import com.rld.salespitchapi.jpa.repositories.MatchRepository
-import com.rld.salespitchapi.jpa.repositories.ResetRepository
-import com.rld.salespitchapi.jpa.repositories.UserRepository
-import com.rld.salespitchapi.mail.MailService
-import org.apache.commons.lang3.SystemUtils
+import com.rld.salespitchapi.services.MatchService
+import com.rld.salespitchapi.services.PasswordResetService
+import com.rld.salespitchapi.services.UserService
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.core.io.InputStreamResource
-import org.springframework.http.HttpEntity
-import org.springframework.http.HttpHeaders
-import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
-import org.springframework.security.crypto.argon2.Argon2PasswordEncoder
 import org.springframework.util.LinkedMultiValueMap
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
-import java.io.File
-import java.text.SimpleDateFormat
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import java.util.*
+import java.io.File
 
 @RestController
 @RequestMapping("/app/api")
-class UserController {
-    val dataPath = when {
-        SystemUtils.IS_OS_WINDOWS -> "${System.getProperty("user.home").replace('\\', '/')}/Desktop/salespitchdata"
-        SystemUtils.IS_OS_LINUX -> "${System.getProperty("user.home")}/salespitchdata"
-        SystemUtils.IS_OS_MAC -> "${System.getProperty("user.home")}/salespitchdata"
-        else -> throw ExceptionInInitializerError("OS ${SystemUtils.OS_NAME} is unsupported.")
-    }
+class SalesPitchController {
 
-    @Autowired lateinit var users: UserRepository
-    @Autowired lateinit var matches: MatchRepository
-    @Autowired lateinit var resetRequests: ResetRepository
-
-    @Autowired lateinit var mailService: MailService
-
-    private val hasher = Argon2PasswordEncoder.defaultsForSpringSecurity_v5_8()
+    @Autowired lateinit var userService: UserService
+    @Autowired lateinit var resetService: PasswordResetService
+    @Autowired lateinit var matchService: MatchService
 
     /**
      * Attempts to authenticate a user.  returns the user from the database as json and
@@ -53,12 +33,8 @@ class UserController {
     fun attemptLogin(
         @RequestParam email: String,
         @RequestParam password: String
-    ): ResponseEntity<LinkedMultiValueMap<String, Any>> {
-        val user = users.getUserByEmail(email)
-        if(user == null || !hasher.matches(password, user.password!!))
-            throw Exception("User does not exist or password is wrong. email: $email password: $password")
-        return packUser(user)
-    }
+    ): ResponseEntity<LinkedMultiValueMap<String, Any>> = ResponseEntity.ok()
+        .body(userService.authenticateUser(email, password))
 
     /**
      * Creates a new user account as saves info to the database
@@ -77,30 +53,18 @@ class UserController {
         @RequestPart profilePicture: MultipartFile,
         @RequestPart videoFile: MultipartFile
     ) {
-        val checkUser = users.getUserByEmail(email)
-        require(checkUser == null)
-        with(File("$dataPath/$email/profilepicture")) { //check directory
-            if(!exists()) mkdirs()
-            with(File("$dataPath/$email/profilepicture/picture.jpg")) {
-                writeBytes(profilePicture.bytes)
-            }
+        try { userService.getUser(email) } catch (e: NoSuchElementException) {
+            val user = User.of(
+                firstName = firstname.normalize(),
+                lastName = lastname.normalize(),
+                email = email,
+                password = password,
+                phoneNumber = phone
+            )
+            user.photoPath(userService.dataPath).saveData(profilePicture.bytes)
+            user.videoPath(userService.dataPath).saveData(videoFile.bytes)
+            userService.saveUpdatedUser(user)
         }
-        with(File("$dataPath/$email/video")) { //check directory
-            if(!exists()) mkdirs()
-            with(File("$dataPath/$email/video/video.mp4")) {
-                writeBytes(videoFile.bytes)
-            }
-        }
-        val user = User().apply {
-            this.firstname = firstname.lowercase(Locale.getDefault()).replaceFirstChar { it.titlecase() }
-            this.lastname = lastname.lowercase(Locale.getDefault()).replaceFirstChar { it.titlecase() }
-            this.password = hasher.encode(password)
-            this.email = email
-            this.phoneNumber = phone
-            this.profilePicturePath = "$dataPath/$email/profilepicture/picture.jpg"
-            this.videoUri = "$dataPath/$email/video/video.mp4"
-        }
-        users.save(user)
     }
 
     /**
@@ -112,38 +76,25 @@ class UserController {
 
     @PostMapping("/getnext")
     @Deprecated("Work in progress method.")
-    fun getNextUser(@RequestParam index: Int): ResponseEntity<LinkedMultiValueMap<String, Any>> {
-        val user = users.getUserByIndex(index)
-        return packUser(user)
-    }
+    fun getNextUser(@RequestParam index: Int): ResponseEntity<LinkedMultiValueMap<String, Any>> =
+        ResponseEntity
+            .ok()
+            .body(userService.getUser(index))
 
     @PostMapping("/match")
     fun match(
-        @RequestParam user: String,
-        @RequestParam match: String
-    ) {
-        val wasMatchedBack = matches.getMatchByUser1AndUser2(match, user)
-        if(wasMatchedBack != null) {
-            matches.save(wasMatchedBack.apply {
-                accepted = true
-            })
-        } else {
-            matches.save(Match().apply {
-                user1 = users.getUserByEmail(user)
-                user2 = users.getUserByEmail(match)
-            })
-        }
-    }
+        @RequestParam email: String,
+        @RequestParam matchEmail: String
+    ) = matchService.matchWith(email, matchEmail)
 
     @PostMapping("/matches")
-    fun getMatches(@RequestParam user: String): String {
-        val acceptedMatches = matches.getSuccessfulMatchesByUser(user)
-        val jsonObj = if(acceptedMatches != null)
+    fun getMatches(@RequestParam email: String): String {
+        val acceptedMatches = matchService.getMatches(email)
+        val jsonObj = if(acceptedMatches.isNotEmpty())
             MatchGsonWrapper(acceptedMatches.map {
-                MatchGson(users.getUserByEmail(it.user1?.email!!), users.getUserByEmail(it.user2?.email!!))
+                MatchGson(userService.getUser(it.user1?.email!!), userService.getUser(it.user2?.email!!))
             })
-        else
-            MatchGsonWrapper(listOf())
+        else MatchGsonWrapper(listOf())
         val json = GsonBuilder()
             .excludeFieldsWithoutExposeAnnotation()
             .create()
@@ -152,15 +103,10 @@ class UserController {
         return json
     }
 
-    @GetMapping("/{user}/videotest")
+    @GetMapping("/{email}/video")
     @ResponseBody
-    fun serveVideo(@PathVariable user: String): ResponseEntity<ByteArray> {
-        val path = users.getUserByEmail(user)
-        require(path != null) { "User $user does not exist" }
-        val videoBytes = with(File(path.videoUri!!)) {
-            require(exists())
-            readBytes()
-        }
+    fun serveVideo(@PathVariable email: String): ResponseEntity<ByteArray> {
+        val videoBytes = userService.getVideo(email)
         return ResponseEntity.ok()
             .header("Content-Type", "video/mp4")
             .header("Content-Length", videoBytes.size.toString())
@@ -168,20 +114,13 @@ class UserController {
     }
 
     @PostMapping("/password/send")
-    fun sendPasswordReset(
-        @RequestParam email: String
-    ) {
-        val user = users.getUserByEmail(email)
-        require(user != null)
-        val code = genCode(6)
-        val request = resetRequests.save(ResetRequest().apply {
-            this.user = user
-            this.grantedPeriod = 20
-            this.initTimestamp = getTS()
-            this.assocCode = code
-        })
-        mailService.sendResetMail(request)
-    }
+    fun sendPasswordReset(@RequestParam email: String) = resetService.sendResetMail(email)
+
+    @PostMapping("/password/validate")
+    fun validatePasswordCode(
+        @RequestParam email: String,
+        @RequestParam code: String
+    ) = resetService.validateResetCode(email, code)
 
     @PostMapping("/password/reset")
     fun attemptResetPassword(
@@ -189,56 +128,16 @@ class UserController {
         @RequestParam code: String,
         @RequestParam password: String
     ) {
-        val user = users.getUserByEmail(email)
-        require(user != null)
-        val resetRequest = resetRequests.getResetRequestsByUser(user)
-        require(
-            resetRequest != null && //request exists
-            resetRequest.size == 1 && //there is only one request
-            code == resetRequest[0].assocCode && //the code is valid
-            LocalDateTime //is within valid period
-                .from(
-                    DateTimeFormatter
-                        .RFC_1123_DATE_TIME
-                        .parse(resetRequest[0].initTimestamp!!)
-                )
-                .plusMinutes(resetRequest[0].grantedPeriod.toLong())
-                .isAfter(LocalDateTime.now())
-        )
-        resetRequests.delete(resetRequest[0])
-        user.password = password
-        users.save(user)
-
+        require(resetService.validateResetCode(email, code))
+        resetService.resetPassword(email, password)
     }
 
-    @GetMapping("/mailtest")
-    fun mailTest() {
-        mailService.sendMail("porubangs24@gcc.edu", "Hello World!")
-    }
-
-    fun packUser(user: User?): ResponseEntity<LinkedMultiValueMap<String, Any>> {
-        if(user == null)
-            throw Exception("User does not exist")
-        val gson = GsonBuilder()
-            .excludeFieldsWithoutExposeAnnotation()
-            .create()
-        val pictureBytes = with(File("$dataPath/${user.email}/profilepicture/picture.jpg")) {
-            require(exists()) { "Profile picture cannot be accessed." }
-            readBytes()
+    private fun String.normalize(): String = lowercase(Locale.getDefault()).replaceFirstChar { it.titlecase() }
+    private fun File.saveData(data: ByteArray) {
+        if(this.isDirectory) return
+        with(this.parentFile) {
+            if(!exists()) mkdirs()
+            writeBytes(data)
         }
-        return ResponseEntity
-            .status(200)
-            .contentType(MediaType.MULTIPART_FORM_DATA)
-            .body(LinkedMultiValueMap<String, Any>().apply {
-                add("user", HttpEntity(gson.toJson(user, User::class.java), HttpHeaders()))
-                add("picture", HttpEntity(InputStreamResource(pictureBytes.inputStream()), HttpHeaders()))
-            })
     }
-
-    private fun genCode(len: Int): String {
-        val chars = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-        return buildString { for(i in 0..< len) append(chars.random()) }
-    }
-
-    private fun getTS(): String = LocalDateTime.now().format(DateTimeFormatter.RFC_1123_DATE_TIME)
 }

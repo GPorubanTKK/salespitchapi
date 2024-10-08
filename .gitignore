@@ -41,3 +41,6 @@ out/
 
 ### Logs ###
 /logs
+
+### AWS CREDENTIALS ###
+/src/main/resources/aws.properties

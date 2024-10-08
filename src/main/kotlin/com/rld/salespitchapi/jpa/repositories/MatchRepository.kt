@@ -7,7 +7,7 @@ import org.springframework.data.repository.query.Param
 
 interface MatchRepository : CrudRepository<Match, Long> {
     @Query("SELECT match from Match match WHERE (match.user1.email = :email OR match.user2.email = :email) AND match.accepted = true")
-    fun getSuccessfulMatchesByUser(@Param("email") email: String): List<Match>?
+    fun getSuccessfulMatchesByUser(@Param("email") email: String): List<Match>
 
     @Query("SELECT match from Match match WHERE match.user1.email = :email1 AND match.user2.email = :email2")
     fun getMatchByUser1AndUser2(
