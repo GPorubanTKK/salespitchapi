@@ -34,11 +34,13 @@ import java.time.format.DateTimeFormatter
     fun validateResetCode(email: String, providedCode: String): Boolean {
         val user = userService.getUser(email)
         val request = passwordResetRepository.getResetRequestsByUser(user)
-        return request != null && //a request was made
+        val ret = request != null && //a request was made
             request.assocCode!! == providedCode && //the user provided a valid reset code
             request.initTimestamp!!.toDateTime() //the user presented it within the valid time period
                 .plusMinutes(request.grantedPeriod.toLong())
                 .isAfter(LocalDateTime.now())
+        require(ret)
+        return true
     }
 
     fun resetPassword(email: String, newPassword: String) {

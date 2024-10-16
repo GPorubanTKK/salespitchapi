@@ -25,11 +25,13 @@ class MessageHandler(private val onRequestAuth: (String, String) -> Boolean) : W
             MessageType.Identify -> {
                 require(!authenticatedSessions.containsKey(from) && onRequestAuth(from!!, payload!!["password"].asString)) //session isn't already authenticated
                 authenticatedSessions[from!!] = session.remoteAddress!!
+                println("Authenticated $from with address ${session.remoteAddress}")
+                session.sendMessage(SystemMessage(from, JsonObject().apply { addProperty("content", "Welcome, $from!") }))
             }
             MessageType.Message -> {
                 println("Sending message ${payload!!["content"].asString} to $to")
                 val dest = connectedSessions[authenticatedSessions[to]]!!
-                dest.sendMessage(DirectMessage(from!!, to!!, JsonObject()), DirectMessage::class.java)
+                dest.sendMessage(DirectMessage(from!!, to!!, JsonObject()))
             }
             MessageType.Match -> TODO("Implement websocket handling of matches")
             MessageType.System -> println("Received a system message from $from: $payload")
@@ -55,8 +57,8 @@ class MessageHandler(private val onRequestAuth: (String, String) -> Boolean) : W
         val authenticatedSessions = mutableMapOf<String, InetSocketAddress>() //sessions identified by the clients
     }
 
-    private fun WebSocketSession.sendMessage(message: WSMessage, messageType: Class<out WSMessage>) {
+    private fun WebSocketSession.sendMessage(message: WSMessage) {
         val gson = GsonBuilder().excludeFieldsWithoutExposeAnnotation().create()
-        sendMessage(TextMessage(gson.toJson(message, messageType)))
+        sendMessage(TextMessage(gson.toJson(message, message::class.java)))
     }
 }

@@ -6,6 +6,7 @@ import com.rld.salespitchapi.services.MatchService
 import com.rld.salespitchapi.services.PasswordResetService
 import com.rld.salespitchapi.services.UserService
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.util.LinkedMultiValueMap
 import org.springframework.web.bind.annotation.*
@@ -34,6 +35,7 @@ class SalesPitchController {
         @RequestParam email: String,
         @RequestParam password: String
     ): ResponseEntity<LinkedMultiValueMap<String, Any>> = ResponseEntity.ok()
+        .contentType(MediaType.MULTIPART_FORM_DATA)
         .body(userService.authenticateUser(email, password))
 
     /**
@@ -58,7 +60,7 @@ class SalesPitchController {
                 firstName = firstname.normalize(),
                 lastName = lastname.normalize(),
                 email = email,
-                password = password,
+                password = userService.hash(password),
                 phoneNumber = phone
             )
             user.photoPath(userService.dataPath).saveData(profilePicture.bytes)
@@ -77,8 +79,8 @@ class SalesPitchController {
     @PostMapping("/getnext")
     @Deprecated("Work in progress method.")
     fun getNextUser(@RequestParam index: Int): ResponseEntity<LinkedMultiValueMap<String, Any>> =
-        ResponseEntity
-            .ok()
+        ResponseEntity.ok()
+            .contentType(MediaType.MULTIPART_FORM_DATA)
             .body(userService.getUser(index))
 
     @PostMapping("/match")
@@ -137,7 +139,7 @@ class SalesPitchController {
         if(this.isDirectory) return
         with(this.parentFile) {
             if(!exists()) mkdirs()
-            writeBytes(data)
         }
+        writeBytes(data)
     }
 }

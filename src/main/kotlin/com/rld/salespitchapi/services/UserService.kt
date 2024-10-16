@@ -5,6 +5,7 @@ import com.rld.salespitchapi.jpa.entities.User
 import com.rld.salespitchapi.jpa.repositories.UserRepository
 import org.apache.commons.lang3.SystemUtils
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.core.io.ByteArrayResource
 import org.springframework.core.io.InputStreamResource
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
@@ -35,11 +36,13 @@ import org.springframework.util.LinkedMultiValueMap
         return packUser(user)
     }
 
+    fun hash(str: String): String = hasher.encode(str)
+
     fun saveUpdatedUser(user: User) = userRepository.save(user)
 
     fun authenticateUser(email: String, password: String): LinkedMultiValueMap<String, Any> {
         val user = getUser(email)
-        require(hasher.matches(password, user.password))
+        require(hasher.matches(password, user.password)) { print("Passwords do not match") }
         return packUser(user)
     }
 
@@ -65,7 +68,7 @@ import org.springframework.util.LinkedMultiValueMap
         }
         return LinkedMultiValueMap<String, Any>().apply {
             add("user", HttpEntity(gson.toJson(user, User::class.java), HttpHeaders()))
-            add("picture", HttpEntity(InputStreamResource(pictureBytes.inputStream()), HttpHeaders()))
+            add("picture", HttpEntity(ByteArrayResource(pictureBytes), HttpHeaders()))
         }
     }
 }
