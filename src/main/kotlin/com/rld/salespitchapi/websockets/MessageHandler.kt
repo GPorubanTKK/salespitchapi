@@ -8,8 +8,9 @@ import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketHandler
 import org.springframework.web.socket.WebSocketMessage
 import org.springframework.web.socket.WebSocketSession
-import com.rld.salespitchapi.websockets.WebSocketMessage as WSMessage
+import java.lang.IllegalStateException
 import java.net.InetSocketAddress
+import com.rld.salespitchapi.websockets.WebSocketMessage as WSMessage
 
 class MessageHandler(private val onRequestAuth: (String, String) -> Boolean) : WebSocketHandler {
     override fun afterConnectionEstablished(session: WebSocketSession) {
@@ -33,13 +34,14 @@ class MessageHandler(private val onRequestAuth: (String, String) -> Boolean) : W
                 val dest = connectedSessions[authenticatedSessions[to]]!!
                 dest.sendMessage(DirectMessage(from!!, to!!, JsonObject()))
             }
-            MessageType.Match -> TODO("Implement websocket handling of matches")
+            MessageType.Match -> throw IllegalStateException("Server should not receive match packets")
             MessageType.System -> println("Received a system message from $from: $payload")
         }
     }
 
     override fun handleTransportError(session: WebSocketSession, exception: Throwable) {
-        throw Exception("Transport error in session ${session.id}", exception)
+        logger.debug("Transport error in session ${session.id}", exception)
+        println("Transport error in session ${session.id}")
     }
 
     override fun afterConnectionClosed(session: WebSocketSession, closeStatus: CloseStatus) {

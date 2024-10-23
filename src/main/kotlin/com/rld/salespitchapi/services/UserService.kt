@@ -64,7 +64,7 @@ import org.springframework.util.LinkedMultiValueMap
             .create()
         val pictureBytes = with(user.photoPath(dataPath)) {
             require(exists()) { "Profile picture cannot be accessed." }
-            readBytes()
+            readBytes().also { println("Packing jpeg with ${it.size} bytes.") }
         }
         return LinkedMultiValueMap<String, Any>().apply {
             add("user", HttpEntity(gson.toJson(user, User::class.java), HttpHeaders()))

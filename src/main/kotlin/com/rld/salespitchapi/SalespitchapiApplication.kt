@@ -10,6 +10,7 @@ import org.springframework.boot.runApplication
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException
 
 @SpringBootApplication
 class SalespitchapiApplication {
@@ -24,6 +25,9 @@ fun main(args: Array<String>) {
 
 @RestControllerAdvice
 class ErrorHandler {
+	@ExceptionHandler(value = [AsyncRequestNotUsableException::class])
+	fun handleNoAsyncRequest(request: HttpServletRequest, e: Exception) = ResponseEntity.internalServerError().build<Unit>()
+
 	@ExceptionHandler
 	fun handle(request: HttpServletRequest, e: Exception): ResponseEntity<Unit> {
 		logger.error("$e at ${request.servletPath}")
