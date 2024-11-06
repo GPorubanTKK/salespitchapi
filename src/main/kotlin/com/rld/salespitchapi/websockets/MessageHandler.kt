@@ -54,7 +54,7 @@ class MessageHandler(private val onRequestAuth: (String, String) -> Boolean) : W
 
     override fun supportsPartialMessages() = false
 
-    companion object { //TODO: fix potential concurrency issues with shared mutable state
+    companion object {
         val connectedSessions = mutableMapOf<InetSocketAddress, WebSocketSession>() //all sessions
         val authenticatedSessions = mutableMapOf<String, InetSocketAddress>() //sessions identified by the clients
     }

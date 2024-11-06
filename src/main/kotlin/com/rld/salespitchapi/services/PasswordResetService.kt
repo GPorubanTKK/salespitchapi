@@ -10,25 +10,32 @@ import software.amazon.awssdk.services.ses.SesClient
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
+//TODO: Impl code to clean-up unused requests
+
 @Service class PasswordResetService {
     @Autowired private lateinit var userService: UserService
     @Autowired private lateinit var passwordResetRepository: ResetRepository
+    @Autowired private lateinit var credentialsHelper: AwsCredentialsHelper
 
     private val hasher = Argon2PasswordEncoder.defaultsForSpringSecurity_v5_8()
 
+    private val timeoutPeriod = 20
+
     fun sendResetMail(email: String) {
-        val request = ResetRequest.of(
-            user = userService.getUser(email),
+        val user = userService.getUser(email)
+        val prevRequest = passwordResetRepository.getResetRequestsByUser(user)
+        require((prevRequest != null && !tsIsGood(prevRequest, 20)) || prevRequest == null)
+        val newRequest = ResetRequest.of(
+            user = user,
             timeStamp = getTS(),
-            period = 20,
-            generateResetCode(6)
+            period = timeoutPeriod,
+            resetCode = generateResetCode(6),
         )
-        passwordResetRepository.save(request)
-        sendMail(
-            request.user!!.email,
-            "Password reset code for Salespitch",
-            "Your reset code is ${request.assocCode!!}. It is valid for ${request.grantedPeriod} minutes."
-        )
+        sendMail(email, "Password reset request for Salespitch", """
+            Hello, you are receiving this because you have requested a password reset for your Salespitch account.
+            Your reset code is: ${newRequest.assocCode}.  It will expire in $timeoutPeriod minutes.
+        """.trimIndent())
+        passwordResetRepository.save(newRequest)
     }
 
     fun validateResetCode(email: String, providedCode: String): Boolean {
@@ -36,31 +43,24 @@ import java.time.format.DateTimeFormatter
         val request = passwordResetRepository.getResetRequestsByUser(user)
         val ret = request != null && //a request was made
             request.assocCode!! == providedCode && //the user provided a valid reset code
-            request.initTimestamp!!.toDateTime() //the user presented it within the valid time period
-                .plusMinutes(request.grantedPeriod.toLong())
-                .isAfter(LocalDateTime.now())
+            tsIsGood(request, timeoutPeriod)
         require(ret)
         return true
     }
 
-    fun resetPassword(email: String, newPassword: String) {
+    fun resetPassword(email: String, newPassword: String, resetCode: String) {
+        require(validateResetCode(email, resetCode))
         val user = userService.getUser(email)
-        val request = passwordResetRepository.getResetRequestsByUser(user)
-        passwordResetRepository.delete(request!!)
         user.password = hasher.encode(newPassword)
         userService.saveUpdatedUser(user)
     }
 
-    @Autowired private lateinit var credentialsHelper: AwsCredentialsHelper
-
-    private fun getSESClient() = SesClient
-        .builder()
-        .credentialsProvider { credentialsHelper.getCredentials() }
-        .region(Region.US_EAST_2)
-        .build()
-
     private fun sendMail(email: String, subject: String, text: String) {
-        val client = getSESClient()
+        val client = SesClient
+            .builder()
+            .credentialsProvider { credentialsHelper.getCredentials() }
+            .region(Region.US_EAST_2)
+            .build()
         client.checkQuota() //make sure we aren't sending too many emails
         client.sendEmail { builder ->
             builder.message { msg ->
@@ -73,7 +73,7 @@ import java.time.format.DateTimeFormatter
     }
 
     private fun SesClient.checkQuota() {
-        if(sendQuota.sentLast24Hours() + 1 >= sendQuota.max24HourSend()) throw QuotaException()
+        if(sendQuota.sentLast24Hours() + 2 >= sendQuota.max24HourSend()) throw QuotaException()
     }
 
     class QuotaException: Exception()
@@ -81,9 +81,17 @@ import java.time.format.DateTimeFormatter
     private fun String.toDateTime(): LocalDateTime =
         LocalDateTime.from(DateTimeFormatter.RFC_1123_DATE_TIME.parse(this))
 
-    private fun getTS(): String = LocalDateTime.now().format(DateTimeFormatter.RFC_1123_DATE_TIME)
+    private fun getTS(): String =
+        LocalDateTime.now().format(DateTimeFormatter.RFC_1123_DATE_TIME)
+
     private fun generateResetCode(len: Int): String {
         val chars = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
         return buildString { for(i in 0..< len) append(chars.random()) }
     }
+
+    private fun LocalDateTime.isWithinTimeZone(start: LocalDateTime, length: Int): Boolean =
+        start.plusMinutes(length.toLong()).isAfter(this)
+
+    private fun tsIsGood(request: ResetRequest, length: Int): Boolean =
+        LocalDateTime.now().isWithinTimeZone(request.initTimestamp!!.toDateTime(), length)
 }
