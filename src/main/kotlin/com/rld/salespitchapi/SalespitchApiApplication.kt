@@ -1,6 +1,6 @@
 package com.rld.salespitchapi
 
-import com.rld.salespitchapi.SalespitchapiApplication.Companion.logger
+import com.rld.salespitchapi.SalespitchApiApplication.Companion.logger
 import com.rld.salespitchapi.services.PasswordResetService
 import jakarta.servlet.http.HttpServletRequest
 import org.slf4j.Logger
@@ -13,14 +13,14 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException
 
 @SpringBootApplication
-class SalespitchapiApplication {
+class SalespitchApiApplication {
 	companion object {
-		val logger: Logger = LoggerFactory.getLogger(SalespitchapiApplication::class.java)
+		val logger: Logger = LoggerFactory.getLogger(SalespitchApiApplication::class.java)
 	}
 }
 
 fun main(args: Array<String>) {
-	runApplication<SalespitchapiApplication>(*args)
+	runApplication<SalespitchApiApplication>(*args)
 }
 
 @RestControllerAdvice

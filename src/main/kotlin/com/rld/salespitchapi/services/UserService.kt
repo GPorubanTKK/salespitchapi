@@ -3,10 +3,11 @@ package com.rld.salespitchapi.services
 import com.google.gson.GsonBuilder
 import com.rld.salespitchapi.jpa.entities.User
 import com.rld.salespitchapi.jpa.repositories.UserRepository
+import com.rld.salespitchapi.normalize
+import com.rld.salespitchapi.saveData
 import org.apache.commons.lang3.SystemUtils
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.core.io.ByteArrayResource
-import org.springframework.core.io.InputStreamResource
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder
@@ -15,6 +16,9 @@ import org.springframework.util.LinkedMultiValueMap
 
 @Service class UserService {
     @Autowired private lateinit var userRepository: UserRepository
+    @Autowired private lateinit var messagingService: MessagingService
+
+    private val hasher = Argon2PasswordEncoder.defaultsForSpringSecurity_v5_8()
 
     /**
      * The base filesystem path for locating data on disk
@@ -26,7 +30,6 @@ import org.springframework.util.LinkedMultiValueMap
         else -> throw ExceptionInInitializerError("OS ${SystemUtils.OS_NAME} is unsupported.")
     }
 
-    private val hasher = Argon2PasswordEncoder.defaultsForSpringSecurity_v5_8()
 
     fun getUser(email: String): User =
         userRepository.getUserByEmail(email) ?: throw NoSuchElementException("User $email does not exist.")
@@ -36,15 +39,13 @@ import org.springframework.util.LinkedMultiValueMap
         return packUser(user)
     }
 
-    fun hash(str: String): String = hasher.encode(str)
-
-    fun saveUpdatedUser(user: User) = userRepository.save(user)
-
     fun authenticateUser(email: String, password: String): LinkedMultiValueMap<String, Any> {
         val user = getUser(email)
         require(hasher.matches(password, user.password)) { print("Passwords do not match") }
         return packUser(user)
     }
+
+    fun isAuthed(email: String): Boolean = messagingService.userIsAuthed(email)
 
     fun getVideo(email: String): ByteArray {
         val user = getUser(email)
@@ -54,8 +55,32 @@ import org.springframework.util.LinkedMultiValueMap
         }
     }
 
-    fun matchWith(mathWithEmail: String) {
+    fun createUser(
+        email: String,
+        password: String,
+        firstname: String,
+        lastname: String,
+        phoneNumber: String,
+        pictureBytes: ByteArray,
+        videoBytes: ByteArray
+    ) {
+        try { getUser(email) } catch (_: java.util.NoSuchElementException) {
+            val user = User.of(
+                firstName = firstname.normalize(),
+                lastName = lastname.normalize(),
+                email = email,
+                password = hasher.encode(password),
+                phoneNumber = phoneNumber
+            )
+            user.photoPath(dataPath).saveData(pictureBytes)
+            user.videoPath(dataPath).saveData(videoBytes)
+            userRepository.save(user)
+        }
+    }
 
+    fun deleteUser(email: String) {
+        require(isAuthed(email))
+        userRepository.delete(getUser(email))
     }
 
     private fun packUser(user: User): LinkedMultiValueMap<String, Any> {

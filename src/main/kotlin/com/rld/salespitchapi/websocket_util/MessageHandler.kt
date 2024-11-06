@@ -1,8 +1,8 @@
-package com.rld.salespitchapi.websockets
+package com.rld.salespitchapi.websocket_util
 
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
-import com.rld.salespitchapi.SalespitchapiApplication.Companion.logger
+import com.rld.salespitchapi.SalespitchApiApplication.Companion.logger
 import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketHandler
@@ -10,9 +10,16 @@ import org.springframework.web.socket.WebSocketMessage
 import org.springframework.web.socket.WebSocketSession
 import java.lang.IllegalStateException
 import java.net.InetSocketAddress
-import com.rld.salespitchapi.websockets.WebSocketMessage as WSMessage
+import com.rld.salespitchapi.websocket_util.WebSocketMessage as WSMessage
 
 class MessageHandler(private val onRequestAuth: (String, String) -> Boolean) : WebSocketHandler {
+    init {
+        println("Called ctor")
+    }
+
+    val connectedSessions = mutableMapOf<InetSocketAddress, WebSocketSession>() //all sessions
+    val authenticatedSessions = mutableMapOf<String, InetSocketAddress>() //sessions identified by the clients
+
     override fun afterConnectionEstablished(session: WebSocketSession) {
         logger.debug("Connection established with {}", session.remoteAddress)
         println("Connection established with ${session.remoteAddress}")
@@ -54,10 +61,8 @@ class MessageHandler(private val onRequestAuth: (String, String) -> Boolean) : W
 
     override fun supportsPartialMessages() = false
 
-    companion object {
-        val connectedSessions = mutableMapOf<InetSocketAddress, WebSocketSession>() //all sessions
-        val authenticatedSessions = mutableMapOf<String, InetSocketAddress>() //sessions identified by the clients
-    }
+    fun sendMessageTo(recipient: String, message: WSMessage) =
+        connectedSessions[authenticatedSessions[recipient]]?.sendMessage(message)
 
     private fun WebSocketSession.sendMessage(message: WSMessage) {
         val gson = GsonBuilder().excludeFieldsWithoutExposeAnnotation().create()

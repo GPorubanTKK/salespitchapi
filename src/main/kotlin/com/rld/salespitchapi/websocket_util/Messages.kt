@@ -1,9 +1,9 @@
-package com.rld.salespitchapi.websockets
+package com.rld.salespitchapi.websocket_util
 
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
 import com.google.gson.annotations.Expose
-import com.rld.salespitchapi.websockets.MessageType.*
+import com.rld.salespitchapi.websocket_util.MessageType.*
 import org.springframework.web.socket.TextMessage
 
 abstract class WebSocketMessage(
