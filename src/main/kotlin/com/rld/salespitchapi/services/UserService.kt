@@ -7,6 +7,7 @@ import com.rld.salespitchapi.normalize
 import com.rld.salespitchapi.saveData
 import org.apache.commons.lang3.SystemUtils
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.core.io.ByteArrayResource
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
@@ -16,7 +17,6 @@ import org.springframework.util.LinkedMultiValueMap
 
 @Service class UserService {
     @Autowired private lateinit var userRepository: UserRepository
-    @Autowired private lateinit var messagingService: MessagingService
 
     private val hasher = Argon2PasswordEncoder.defaultsForSpringSecurity_v5_8()
 
@@ -45,7 +45,7 @@ import org.springframework.util.LinkedMultiValueMap
         return packUser(user)
     }
 
-    fun isAuthed(email: String): Boolean = messagingService.userIsAuthed(email)
+    fun isAuthed(email: String): Boolean = MessagingService.userIsAuthed(email)
 
     fun getVideo(email: String): ByteArray {
         val user = getUser(email)
@@ -54,6 +54,13 @@ import org.springframework.util.LinkedMultiValueMap
             readBytes()
         }
     }
+
+    internal fun saveUpdatedUser(user: User) {
+        require(exists(user.email))
+        userRepository.save(user)
+    }
+
+    fun exists(email: String): Boolean = try { getUser(email); true } catch (_: NoSuchElementException) { false }
 
     fun createUser(
         email: String,
@@ -80,6 +87,7 @@ import org.springframework.util.LinkedMultiValueMap
 
     fun deleteUser(email: String) {
         require(isAuthed(email))
+        MessagingService.disconnectUser(email)
         userRepository.delete(getUser(email))
     }
 

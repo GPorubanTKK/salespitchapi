@@ -29,7 +29,7 @@ import java.time.format.DateTimeFormatter
             user = user,
             timeStamp = getTS(),
             period = timeoutPeriod,
-            resetCode = generateResetCode(6),
+            resetCode = generateResetCode(),
         )
         sendMail(email, "Password reset request for Salespitch", """
             Hello, you are receiving this because you have requested a password reset for your Salespitch account.
@@ -84,7 +84,7 @@ import java.time.format.DateTimeFormatter
     private fun getTS(): String =
         LocalDateTime.now().format(DateTimeFormatter.RFC_1123_DATE_TIME)
 
-    private fun generateResetCode(len: Int): String {
+    private fun generateResetCode(len: Int = 6): String {
         val chars = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
         return buildString { for(i in 0..< len) append(chars.random()) }
     }

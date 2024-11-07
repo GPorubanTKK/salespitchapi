@@ -39,12 +39,6 @@ dependencies {
 	implementation("org.springframework.session:spring-session-core")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
 	implementation("org.springframework.boot:spring-boot-starter-mail")
-	compileOnly("org.projectlombok:lombok")
-	runtimeOnly("org.postgresql:postgresql")
-	annotationProcessor("org.projectlombok:lombok")
-	testImplementation("org.springframework.boot:spring-boot-starter-test")
-	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
-	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 	implementation("org.springframework.security:spring-security-crypto:6.3.0")
 	implementation("org.bouncycastle:bcprov-jdk18on:1.78")
 	implementation("com.google.code.gson:gson:2.11.0")
@@ -53,6 +47,11 @@ dependencies {
 	implementation("org.springframework:spring-messaging:6.1.10")
 	implementation("com.fasterxml.jackson.core:jackson-core:2.17.2")
 	implementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")
+	"developmentOnly"("org.springframework.boot:spring-boot-devtools")
+	runtimeOnly("org.postgresql:postgresql")
+	testImplementation("org.springframework.boot:spring-boot-starter-test")
+	testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 kotlin {

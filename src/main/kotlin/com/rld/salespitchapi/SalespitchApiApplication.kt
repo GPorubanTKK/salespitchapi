@@ -37,3 +37,5 @@ class ErrorHandler {
 		}
 	}
 }
+
+const val baseMapping = "/app/api"

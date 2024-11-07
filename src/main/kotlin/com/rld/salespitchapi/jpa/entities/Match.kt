@@ -17,6 +17,7 @@ open class Match {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user2")
     open var user2: User? = null
+    @Expose
     open var accepted: Boolean = false
     companion object {
         fun of(
@@ -31,12 +32,7 @@ open class Match {
     }
 }
 
-data class MatchGson(
-    @Expose val user1: User?,
-    @Expose val user2: User?
-)
-
 
 data class MatchGsonWrapper(
-    @Expose val matches: List<MatchGson>
+    @Expose val matches: List<Match>
 )

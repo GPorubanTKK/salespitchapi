@@ -10,7 +10,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
 
 @Configuration
 @PropertySource("classpath:aws.properties")
-class AwsCredentialsHelper {
+internal class AwsCredentialsHelper {
     @Autowired lateinit var env: Environment
 
     /**
