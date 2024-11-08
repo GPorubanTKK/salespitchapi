@@ -1,11 +1,17 @@
+import com.github.gradle.node.npm.task.NpmTask
+
+val base = "${project.projectDir}/src/main/website/app/"
+val baseRes = "$projectDir/src/main/resources/static"
+
 plugins {
 	kotlin("jvm") version "1.9.25"
 	kotlin("plugin.spring") version "1.9.25"
+	kotlin("plugin.jpa") version "1.9.25"
 	id("org.springframework.boot") version "3.3.4"
 	id("io.spring.dependency-management") version "1.1.6"
 	id("org.hibernate.orm") version "6.5.3.Final"
 	id("org.graalvm.buildtools.native") version "0.10.3"
-	kotlin("plugin.jpa") version "1.9.25"
+	id("com.github.node-gradle.node") version "3.5.0"
 }
 
 group = "com.rld"
@@ -16,6 +22,39 @@ java {
 		languageVersion = JavaLanguageVersion.of(21)
 	}
 }
+
+node {
+	download = false
+	workDir = file("${base}nodejs")
+	npmWorkDir = file("${base}npm")
+	nodeProjectDir = file(base)
+}
+
+tasks {
+	named<NpmTask>("npmInstall") {
+		description = "read package.json and install deps"
+		workingDir = file(base)
+		args = listOf("install")
+	}
+
+	register<NpmTask>("buildVite") {
+		description = "Build vite project"
+		workingDir = file(base)
+		args = listOf("run", "build")
+		dependsOn("npmInstall")
+	}
+
+	register<Copy>("copyToResources") {
+		from("$base/dist/")
+		destinationDir = file(baseRes)
+		dependsOn("buildVite")
+	}
+
+	named("bootRun") {
+		dependsOn("copyToResources")
+	}
+}
+
 
 configurations {
 	compileOnly {
