@@ -44,3 +44,6 @@ out/
 
 ### AWS CREDENTIALS ###
 /src/main/resources/aws.properties
+
+### Dup web files ###
+/src/main/resources/static/

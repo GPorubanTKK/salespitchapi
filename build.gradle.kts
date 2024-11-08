@@ -1,7 +1,7 @@
 import com.github.gradle.node.npm.task.NpmTask
 
 val base = "${project.projectDir}/src/main/website/app/"
-val baseRes = "$projectDir/src/main/resources/static"
+val baseRes = "$projectDir/src/main/resources/static/"
 
 plugins {
 	kotlin("jvm") version "1.9.25"
@@ -45,13 +45,26 @@ tasks {
 	}
 
 	register<Copy>("copyToResources") {
+		dependsOn("buildVite")
+		mustRunAfter("buildVite")
 		from("$base/dist/")
 		destinationDir = file(baseRes)
+	}
+
+	register<NpmTask>("viteDev") {
 		dependsOn("buildVite")
+		mustRunAfter("buildVite")
+		workingDir = file("base")
+		args = listOf("run", "dev")
+	}
+
+	named("processResources") {
+		dependsOn("copyToResources")
 	}
 
 	named("bootRun") {
 		dependsOn("copyToResources")
+		mustRunAfter("copyToResources")
 	}
 }
 
