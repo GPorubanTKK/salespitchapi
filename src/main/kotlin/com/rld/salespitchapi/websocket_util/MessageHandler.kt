@@ -31,10 +31,15 @@ class MessageHandler(private val onRequestAuth: (String, String) -> Boolean) : W
         if(type != MessageType.Identify) require(authenticatedSessions.containsValue(session.remoteAddress!!))
         when(type!!) {
             MessageType.Identify -> {
-                require(!authenticatedSessions.containsKey(from) && onRequestAuth(from!!, payload!!["password"].asString)) //session isn't already authenticated
-                authenticatedSessions[from!!] = session.remoteAddress!!
-                println("Authenticated $from with address ${session.remoteAddress}")
-                session.sendMessage(SystemMessage(from, JsonObject().apply { addProperty("content", "Welcome, $from!") }))
+                val password = payload!!["password"].asString
+                val isValid = try {
+                    require(!authenticatedSessions.containsKey(from)) { "Session is already authenticated" } //session isn't already authenticated
+                    require(onRequestAuth(from!!, password)) { "Session authKey is invalid" }
+                    authenticatedSessions[from] = session.remoteAddress!!
+                    println("Authenticated $from with address ${session.remoteAddress}")
+                    true
+                } catch (_: Exception) { false }
+                session.sendMessage(IdentityMessage("", JsonObject().apply { addProperty("password", password); addProperty("valid", isValid) }))
             }
             MessageType.Message -> {
                 println("Sending message ${payload!!["content"].asString} to $to")

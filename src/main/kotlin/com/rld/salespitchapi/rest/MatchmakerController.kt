@@ -8,7 +8,6 @@ import com.rld.salespitchapi.services.UserService
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
-import org.springframework.util.MimeType
 import org.springframework.web.bind.annotation.*
 
 @RestController
@@ -16,7 +15,7 @@ import org.springframework.web.bind.annotation.*
 class MatchmakerController {
     @Autowired private lateinit var userService: UserService
 
-    @PostMapping("/getnextuser")
+    @PostMapping("/getnextuser", produces = [MediaType.MULTIPART_FORM_DATA_VALUE])
     fun getNextUser(@RequestParam email: String, @RequestParam index: Int): MultipartResponse {
         require(userService.isAuthed(email))
         return ResponseEntity.ok(userService.getUser(index))
@@ -27,7 +26,7 @@ class MatchmakerController {
         @PathVariable requester: String,
         @PathVariable target: String
     ): MediaResource {
-        require(userService.isAuthed(requester))
+        require(userService.isAuthed(requester)) { "Requester $requester is not authed" }
         val video = userService.getVideo(target)
         return ResponseEntity.ok()
             .contentType("video/mp4")

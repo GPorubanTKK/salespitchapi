@@ -4,6 +4,7 @@ import com.rld.salespitchapi.MultipartResponse
 import com.rld.salespitchapi.baseMapping
 import com.rld.salespitchapi.services.UserService
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
@@ -29,13 +30,12 @@ class AccountController {
         userService.deleteUser(email)
     }
 
-    @PostMapping("/auth")
+    @PostMapping("/auth", produces = [MediaType.MULTIPART_FORM_DATA_VALUE])
     fun loginAccount(
         @RequestParam email: String,
         @RequestParam password: String
-    ): MultipartResponse = ResponseEntity.ok(
-        userService.authenticateUser(email, password)
-    )
+    ): MultipartResponse = ResponseEntity
+        .ok(userService.authenticateUser(email, password))
 
     @PostMapping("/create")
     fun createAccount(
