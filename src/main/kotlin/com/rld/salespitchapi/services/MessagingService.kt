@@ -17,15 +17,14 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 @Service
 @EnableWebSocket
 internal class MessagingService : WebSocketConfigurer {
-    private lateinit var userService: UserService
-    @Autowired fun setupUserService(@Lazy userService: UserService) { this.userService = userService }
+    @Autowired @Lazy private lateinit var userService: UserService //lazy init to avoid cyclic deps
 
     override fun registerWebSocketHandlers(registry: WebSocketHandlerRegistry) {
         registry.addHandler(messageHandler(), "/messages")
     }
 
 
-    @Bean(name = ["messageHandler"]) fun messageHandler() = MessageHandler { id, password ->
+    @Bean fun messageHandler() = MessageHandler { id, password ->
         try {
             userService.authenticateUser(id, password)
             true

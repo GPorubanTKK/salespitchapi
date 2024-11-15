@@ -19,6 +19,9 @@ open class Match {
     open var user2: User? = null
     @Expose
     open var accepted: Boolean = false
+    operator fun component1() = user1
+    operator fun component2() = user2
+    operator fun component3() = accepted
     companion object {
         fun of(
             user1: User,
@@ -32,7 +35,12 @@ open class Match {
     }
 }
 
+data class MatchInfoWrapper(
+    @Expose val user1: User,
+    @Expose val user2: User,
+    @Expose val accepted: Boolean
+)
 
 data class MatchGsonWrapper(
-    @Expose val matches: List<Match>
+    @Expose val matches: List<MatchInfoWrapper>
 )

@@ -22,6 +22,16 @@ fun ResponseEntity.BodyBuilder.contentType(contentType: String): ResponseEntity.
     return this
 }
 
+fun <K, V> MutableMap<K, V>.removeValue(value: V): List<K?> {
+    val out = mutableListOf<K?>()
+    entries.removeIf { (k, v) ->
+        val output = v == value
+        if(output) out += k
+        output
+    }
+    return out
+}
+
 val gson: Gson
     get() = GsonBuilder().excludeFieldsWithoutExposeAnnotation().create()
 

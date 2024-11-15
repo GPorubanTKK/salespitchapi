@@ -29,6 +29,10 @@ class MatchController {
     ) = matchService.removeMatch(from, to)
 
     @PostMapping("/getmatches")
-    fun getMatches(@RequestParam email: String): JsonResponse =
-        ResponseEntity.ok(gson.toJson(matchService.getMatchesForUser(email)))
+    fun getMatches(@RequestParam email: String): JsonResponse {
+        val matches = gson.toJson(matchService.getMatchesForUser(email))
+        println("Sending json $matches")
+        return ResponseEntity.ok(matches)
+    }
+
 }

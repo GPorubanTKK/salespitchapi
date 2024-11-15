@@ -3,6 +3,7 @@ package com.rld.salespitchapi.websocket_util
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
 import com.rld.salespitchapi.SalespitchApiApplication.Companion.logger
+import com.rld.salespitchapi.removeValue
 import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketHandler
@@ -13,12 +14,8 @@ import java.net.InetSocketAddress
 import com.rld.salespitchapi.websocket_util.WebSocketMessage as WSMessage
 
 class MessageHandler(private val onRequestAuth: (String, String) -> Boolean) : WebSocketHandler {
-    init {
-        println("Called ctor")
-    }
-
     val connectedSessions = mutableMapOf<InetSocketAddress, WebSocketSession>() //all sessions
-    val authenticatedSessions = mutableMapOf<String, InetSocketAddress>() //sessions identified by the clients
+    val authenticatedSessions = mutableMapOf<String, InetSocketAddress>() //sessions identified by the clients and checked by the db
 
     override fun afterConnectionEstablished(session: WebSocketSession) {
         logger.debug("Connection established with {}", session.remoteAddress)
@@ -60,8 +57,7 @@ class MessageHandler(private val onRequestAuth: (String, String) -> Boolean) : W
         logger.debug("Connection closed with {} code {}", session.remoteAddress, closeStatus.code)
         println("Connection closed with ${session.remoteAddress} code ${closeStatus.code}")
         connectedSessions.remove(session.remoteAddress!!)
-        val userId = authenticatedSessions.entries.first { (_, v) -> v == session.remoteAddress!! }.key
-        authenticatedSessions.remove(userId)
+        authenticatedSessions.removeValue(session.remoteAddress!!)
     }
 
     override fun supportsPartialMessages() = false
